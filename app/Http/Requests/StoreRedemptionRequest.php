@@ -1,0 +1,41 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreRedemptionRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        // Warga yang berhak melakukan penukaran
+        return auth()->check() && auth()->user()->role === 'warga';
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'idempotency_key' => ['required', 'string', 'unique:redemptions,idempotency_key'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.reward_id' => ['required', 'integer', 'exists:rewards,id'],
+            'items.*.qty' => ['required', 'integer', 'min:1'], // Minimal qty 1, anti minus/bypass
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'items.*.qty.min' => 'Jumlah barang yang ditukar tidak boleh kurang dari 1.',
+            'items.min' => 'Minimal harus ada 1 barang yang ditukar.',
+            'idempotency_key.unique' => 'Permintaan penukaran ini sedang atau telah diproses.',
+        ];
+    }
+}
