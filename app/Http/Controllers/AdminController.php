@@ -2,29 +2,34 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\User;
-use App\Models\WasteCategory;
-use App\Models\Transaction;
+use App\Http\Requests\ApproveRedemptionRequest;
+use App\Http\Requests\RejectRedemptionRequest;
+use App\Http\Requests\StoreTransactionRequest;
 use App\Models\Redemption;
 use App\Models\Reward;
-use App\Services\TransactionService;
+use App\Models\Transaction;
+use App\Models\User;
+use App\Models\WasteCategory;
+use App\Http\Requests\Admin\StoreUserRequest;
+use App\Http\Requests\Admin\UpdateUserRequest;
+use App\Http\Requests\Admin\StoreKategoriRequest;
+use App\Http\Requests\Admin\UpdateKategoriRequest;
+use App\Http\Requests\Admin\StoreRewardRequest;
+use App\Http\Requests\Admin\UpdateRewardRequest;
 use App\Services\RedemptionService;
-use Illuminate\Support\Facades\Auth;
+use App\Services\TransactionService;
 use Exception;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class AdminController extends Controller
 {
-    public function __construct()
-    {
-        // Sinkron dengan route group: admin DAN petugas bisa akses panel ini
-        $this->middleware(['auth', 'role:admin,petugas']);
-    }
 
+    /**
+     * Dashboard Admin: statistik utama & transaksi terbaru.
+     */
     public function dashboard()
     {
-        // Gabungkan 2 query warga menjadi 1 selectRaw untuk efisiensi
         $wargaStats = User::role('warga')
             ->selectRaw('COUNT(*) as total, COALESCE(SUM(saldo_poin), 0) as total_poin')
             ->first();
@@ -33,7 +38,7 @@ class AdminController extends Controller
         $totalPoinBeredar = $wargaStats->total_poin ?? 0;
         $totalTransaksi   = Transaction::count();
         $pendingPenukaran = Redemption::where('status', 'pending')->count();
-        
+
         $recentTransactions = Transaction::with('user:id,name,nik')
             ->orderBy('created_at', 'desc')
             ->take(5)
@@ -44,33 +49,27 @@ class AdminController extends Controller
         ));
     }
 
+    /**
+     * Form POS Timbangan Sampah.
+     */
     public function transaksiForm()
     {
-        // Hanya ambil kolom yang ditampilkan di dropdown (hindari SELECT * + data sensitif)
         $wargaList = User::role('warga')
             ->select('id', 'name', 'nik', 'rt_rw')
             ->orderBy('name')
             ->get();
 
         $categories = WasteCategory::select('id', 'name', 'price_per_kg')->get();
-        
+
         return view('admin.transaksi.form', compact('wargaList', 'categories'));
     }
 
-    public function transaksiStore(Request $request, TransactionService $transactionService)
+    /**
+     * Simpan transaksi setoran sampah.
+     * Validasi ditangani StoreTransactionRequest (FormRequest).
+     */
+    public function transaksiStore(StoreTransactionRequest $request, TransactionService $transactionService)
     {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'items' => 'required|array|min:1',
-            'items.*.waste_category_id' => 'required|integer|exists:waste_categories,id',
-            'items.*.weight' => 'required|numeric|min:0.1|max:9999',
-            'idempotency_key' => ['required', 'string', 'uuid'],
-        ]);
-
-        if (empty($request->items)) {
-            return back()->with('error', 'Item tidak boleh kosong');
-        }
-
         try {
             $transactionService->createTransaction(
                 Auth::id(),
@@ -85,19 +84,25 @@ class AdminController extends Controller
         }
     }
 
+    /**
+     * Daftar penukaran yang masuk (pending, dll).
+     */
     public function redemptionList()
     {
-        $redemptions = Redemption::with(['user', 'details.reward'])->orderBy('created_at', 'desc')->paginate(10);
+        $redemptions = Redemption::with(['user', 'details.reward'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(config('business.pagination_size', 10));
+
         return view('admin.penukaran.index', compact('redemptions'));
     }
 
-    public function approveRedemption(Request $request, $id, RedemptionService $redemptionService)
+    /**
+     * Approve penukaran warga.
+     * Validasi ditangani ApproveRedemptionRequest (FormRequest).
+     */
+    public function approveRedemption(ApproveRedemptionRequest $request, $id, RedemptionService $redemptionService)
     {
-        if (!$id) abort(404);
-
-        $request->validate([
-            'tanggal_ambil' => 'required|date|after_or_equal:today',
-        ]);
+        abort_if(!$id, 404);
 
         try {
             $redemptionService->approveRedemption($id, Auth::id(), $request->tanggal_ambil);
@@ -107,13 +112,13 @@ class AdminController extends Controller
         }
     }
 
-    public function rejectRedemption(Request $request, $id, RedemptionService $redemptionService)
+    /**
+     * Tolak penukaran warga.
+     * Validasi ditangani RejectRedemptionRequest (FormRequest).
+     */
+    public function rejectRedemption(RejectRedemptionRequest $request, $id, RedemptionService $redemptionService)
     {
-        if (!$id) abort(404);
-
-        $request->validate([
-            'catatan' => 'required|string|max:255',
-        ]);
+        abort_if(!$id, 404);
 
         try {
             $redemptionService->rejectRedemption($id, Auth::id(), $request->catatan);
@@ -123,25 +128,196 @@ class AdminController extends Controller
         }
     }
 
+    // ==========================================
+    // CRUD PENGGUNA (USERS)
+    // ==========================================
+
     public function users()
     {
-        // Filter hanya warga, ambil kolom yang relevan saja (bukan SELECT *)
-        $users = User::role('warga')
-            ->select('id', 'name', 'nik', 'email', 'rt_rw', 'saldo_poin', 'created_at')
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+        $this->authorizeAdmin();
+        
+        $query = User::orderBy('created_at', 'desc');
+
+        if (request()->filled('search')) {
+            $search = request('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('nik', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('rt_rw', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->paginate(config('business.pagination_size', 10))
+            ->withQueryString();
+
         return view('admin.users.index', compact('users'));
     }
 
+    public function userCreate()
+    {
+        $this->authorizeAdmin();
+        return view('admin.users.form');
+    }
+
+    public function userStore(StoreUserRequest $request)
+    {
+        $this->authorizeAdmin();
+        $data = $request->validated();
+        $data['password'] = Hash::make($data['password']);
+        User::create($data);
+        return redirect()->route('admin.users')->with('success', 'Pengguna berhasil ditambahkan.');
+    }
+
+    public function userEdit($id)
+    {
+        $this->authorizeAdmin();
+        $user = User::findOrFail($id);
+        return view('admin.users.form', compact('user'));
+    }
+
+    public function userUpdate(UpdateUserRequest $request, $id)
+    {
+        $this->authorizeAdmin();
+        $user = User::findOrFail($id);
+        $data = $request->validated();
+        
+        if (!empty($data['password'])) {
+            $data['password'] = Hash::make($data['password']);
+        } else {
+            unset($data['password']);
+        }
+
+        $user->update($data);
+        return redirect()->route('admin.users')->with('success', 'Data pengguna berhasil diperbarui.');
+    }
+
+    public function userDestroy($id)
+    {
+        $this->authorizeAdmin();
+        $user = User::findOrFail($id);
+        if ($user->id === Auth::id()) {
+            return back()->with('error', 'Tidak dapat menghapus akun Anda sendiri.');
+        }
+        
+        // Proteksi integritas data riwayat transaksi
+        if ($user->transactions()->exists() || $user->redemptions()->exists()) {
+            return back()->with('error', 'Pengguna tidak dapat dihapus karena memiliki riwayat transaksi atau penukaran sampah aktif.');
+        }
+
+        $user->delete();
+        return redirect()->route('admin.users')->with('success', 'Pengguna berhasil dihapus.');
+    }
+
+    // ==========================================
+    // CRUD KATEGORI SAMPAH
+    // ==========================================
+
     public function kategori()
     {
-        $categories = WasteCategory::orderBy('created_at', 'desc')->paginate(10);
+        $this->authorizeAdmin();
+        $categories = WasteCategory::orderBy('created_at', 'desc')
+            ->paginate(config('business.pagination_size', 10));
         return view('admin.kategori.index', compact('categories'));
     }
 
+    public function kategoriCreate()
+    {
+        $this->authorizeAdmin();
+        return view('admin.kategori.form');
+    }
+
+    public function kategoriStore(StoreKategoriRequest $request)
+    {
+        $this->authorizeAdmin();
+        WasteCategory::create($request->validated());
+        return redirect()->route('admin.kategori')->with('success', 'Kategori sampah berhasil ditambahkan.');
+    }
+
+    public function kategoriEdit($id)
+    {
+        $this->authorizeAdmin();
+        $kategori = WasteCategory::findOrFail($id);
+        return view('admin.kategori.form', compact('kategori'));
+    }
+
+    public function kategoriUpdate(UpdateKategoriRequest $request, $id)
+    {
+        $this->authorizeAdmin();
+        $kategori = WasteCategory::findOrFail($id);
+        $kategori->update($request->validated());
+        return redirect()->route('admin.kategori')->with('success', 'Kategori sampah berhasil diperbarui.');
+    }
+
+    public function kategoriDestroy($id)
+    {
+        $this->authorizeAdmin();
+        $kategori = WasteCategory::findOrFail($id);
+        // Proteksi sederhana jika kategori digunakan di transaksi
+        if (\App\Models\TransactionDetail::where('waste_category_id', $kategori->id)->exists()) {
+            return back()->with('error', 'Kategori tidak dapat dihapus karena sudah ada transaksi terkait.');
+        }
+        $kategori->delete();
+        return redirect()->route('admin.kategori')->with('success', 'Kategori sampah berhasil dihapus.');
+    }
+
+    // ==========================================
+    // CRUD REWARD (KATALOG REWARD)
+    // ==========================================
+
     public function reward()
     {
-        $rewards = Reward::orderBy('created_at', 'desc')->paginate(10);
+        $this->authorizeAdmin();
+        $rewards = Reward::orderBy('created_at', 'desc')
+            ->paginate(config('business.pagination_size', 10));
         return view('admin.reward.index', compact('rewards'));
+    }
+
+    public function rewardCreate()
+    {
+        $this->authorizeAdmin();
+        return view('admin.reward.form');
+    }
+
+    public function rewardStore(StoreRewardRequest $request)
+    {
+        $this->authorizeAdmin();
+        Reward::create($request->validated());
+        return redirect()->route('admin.reward')->with('success', 'Reward berhasil ditambahkan.');
+    }
+
+    public function rewardEdit($id)
+    {
+        $this->authorizeAdmin();
+        $reward = Reward::findOrFail($id);
+        return view('admin.reward.form', compact('reward'));
+    }
+
+    public function rewardUpdate(UpdateRewardRequest $request, $id)
+    {
+        $this->authorizeAdmin();
+        $reward = Reward::findOrFail($id);
+        $reward->update($request->validated());
+        return redirect()->route('admin.reward')->with('success', 'Reward berhasil diperbarui.');
+    }
+
+    public function rewardDestroy($id)
+    {
+        $this->authorizeAdmin();
+        $reward = Reward::findOrFail($id);
+        if (\App\Models\RedemptionDetail::where('reward_id', $reward->id)->exists()) {
+            return back()->with('error', 'Reward tidak dapat dihapus karena sudah ada riwayat penukaran terkait.');
+        }
+        $reward->delete();
+        return redirect()->route('admin.reward')->with('success', 'Reward berhasil dihapus.');
+    }
+
+    /**
+     * Memastikan hanya role admin yang dapat memicu aksi master data (Defense-in-Depth).
+     */
+    private function authorizeAdmin(): void
+    {
+        abort_if(Auth::user()->role !== 'admin', 403, 'Akses Ditolak: Anda tidak memiliki izin untuk halaman ini.');
     }
 }

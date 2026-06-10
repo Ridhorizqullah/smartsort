@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class LoginController extends Controller
 {
     /**
-     * Tampilkan halaman login warga.
+     * Tampilkan halaman login.
      */
     public function showLogin()
     {
@@ -17,27 +18,18 @@ class LoginController extends Controller
     }
 
     /**
-     * Proses login warga.
-     * Hanya user dengan role 'warga' yang diizinkan masuk melalui halaman ini.
-     * Admin menggunakan panel /admin (Filament).
+     * Proses login via NIK.
+     * Validasi ditangani oleh LoginRequest (FormRequest).
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $request->validate([
-            'nik'      => ['required', 'string'],
-            'password' => ['required'],
-        ], [
-            'nik.required'      => 'NIK wajib diisi.',
-            'password.required' => 'Kata sandi wajib diisi.',
-        ]);
-
         $credentials = $request->only('nik', 'password');
         $remember    = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
 
-            // Jika role admin/petugas, redirect ke admin dashboard custom
+            // Redirect berdasarkan role
             if (in_array(Auth::user()->role, ['admin', 'petugas'])) {
                 return redirect()->route('admin.dashboard');
             }

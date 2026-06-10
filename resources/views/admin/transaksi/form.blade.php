@@ -22,23 +22,50 @@
             @csrf
             <input type="hidden" name="idempotency_key" value="{{ Str::uuid() }}">
             
-            <!-- Pilih Warga -->
-            <div class="mb-8">
+            <!-- Pilih Warga (Searchable Select Component) -->
+            <div class="mb-8 relative" id="wargaDropdownContainer">
                 <label class="text-sm font-bold text-on-surface-variant mb-2 flex items-center gap-1.5">
                     <span class="material-symbols-outlined text-sm text-primary">person</span>
                     Pilih Warga (Nasabah)
                 </label>
+                
+                <input type="hidden" name="user_id" id="selected_warga_id" value="{{ old('user_id') }}" required>
+                
                 <div class="relative">
-                    <select name="user_id" id="user_select" required class="w-full border border-outline-variant/50 rounded-xl px-4 py-3 bg-white text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer">
-                        <option value="">-- Cari atau Pilih Warga --</option>
-                        @foreach($wargaList as $warga)
-                            <option value="{{ $warga->id }}" {{ old('user_id') == $warga->id ? 'selected' : '' }}>
-                                {{ $warga->name }} (NIK: {{ $warga->nik }} | RT/RW: {{ $warga->rt_rw ?? '-' }})
-                            </option>
-                        @endforeach
-                    </select>
-                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-on-surface-variant">
-                        <span class="material-symbols-outlined">expand_more</span>
+                    <!-- Trigger Button / Display -->
+                    <button type="button" id="wargaDropdownTrigger" class="w-full flex items-center justify-between border border-outline-variant/50 rounded-xl px-4 py-3 bg-white text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer text-left">
+                        <span id="selected_warga_label" class="text-on-surface-variant">-- Cari atau Pilih Warga --</span>
+                        <span id="wargaDropdownArrow" class="material-symbols-outlined text-on-surface-variant transition-transform duration-200">expand_more</span>
+                    </button>
+                    
+                    <!-- Dropdown Menu Box -->
+                    <div id="wargaDropdownMenu" class="absolute left-0 right-0 mt-2 bg-white border border-outline-variant/30 rounded-xl shadow-lg z-50 opacity-0 pointer-events-none transition-all duration-200 transform -translate-y-2">
+                        <!-- Search Input -->
+                        <div class="p-3 border-b border-outline-variant/20 flex items-center gap-2 bg-slate-50 rounded-t-xl">
+                            <span class="material-symbols-outlined text-slate-400 text-[20px]">search</span>
+                            <input type="text" id="wargaSearchInput" class="w-full bg-transparent border-none text-sm outline-none placeholder-slate-400" placeholder="Ketik nama, NIK, atau RT/RW warga..." autocomplete="off">
+                        </div>
+                        
+                        <!-- Options List -->
+                        <div class="max-h-60 overflow-y-auto py-1" id="wargaOptionsList">
+                            <div class="px-4 py-3 text-sm text-slate-500 hover:bg-slate-50 cursor-pointer select-none border-b border-slate-100/50 warga-option-clear" data-value="" data-label="-- Cari atau Pilih Warga --">
+                                -- Batalkan Pilihan --
+                            </div>
+                            @foreach($wargaList as $warga)
+                                <div class="px-4 py-3 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors border-b border-slate-100/50 last:border-none warga-option" 
+                                     data-value="{{ $warga->id }}" 
+                                     data-label="{{ $warga->name }} (NIK: {{ $warga->nik }} | RT/RW: {{ $warga->rt_rw ?? '-' }})"
+                                     data-search="{{ strtolower($warga->name . ' ' . $warga->nik . ' ' . ($warga->rt_rw ?? '')) }}">
+                                    <div class="font-semibold">{{ $warga->name }}</div>
+                                    <div class="text-xs text-slate-400 mt-0.5">NIK: {{ $warga->nik }} • RT/RW: {{ $warga->rt_rw ?? '-' }}</div>
+                                </div>
+                            @endforeach
+                            <!-- No Results State -->
+                            <div id="noWargaResults" class="px-4 py-6 text-center text-sm text-slate-500 hidden flex flex-col items-center">
+                                <span class="material-symbols-outlined text-slate-300 text-3xl mb-1">person_search</span>
+                                Warga tidak ditemukan
+                            </div>
+                        </div>
                     </div>
                 </div>
                 @error('user_id') <p class="text-error text-xs mt-1.5 font-semibold">{{ $message }}</p> @enderror
@@ -286,6 +313,171 @@
         const initialRow = container.querySelector('.item-row');
         attachRowEvents(initialRow);
         updateRemoveButtonsState();
+
+        // Searchable Warga Dropdown Logic
+        const wargaContainer = document.getElementById('wargaDropdownContainer');
+        const wargaTrigger = document.getElementById('wargaDropdownTrigger');
+        const wargaMenu = document.getElementById('wargaDropdownMenu');
+        const wargaSearchInput = document.getElementById('wargaSearchInput');
+        const wargaOptionsList = document.getElementById('wargaOptionsList');
+        const selectedWargaId = document.getElementById('selected_warga_id');
+        const selectedWargaLabel = document.getElementById('selected_warga_label');
+        const wargaDropdownArrow = document.getElementById('wargaDropdownArrow');
+        const noWargaResults = document.getElementById('noWargaResults');
+        const wargaOptions = wargaOptionsList.querySelectorAll('.warga-option');
+        const wargaOptionClear = wargaOptionsList.querySelector('.warga-option-clear');
+
+        let activeOptionIndex = -1;
+
+        // Toggle dropdown open/close
+        wargaTrigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isOpen = !wargaMenu.classList.contains('opacity-0');
+            if (isOpen) {
+                closeWargaDropdown();
+            } else {
+                openWargaDropdown();
+            }
+        });
+
+        function openWargaDropdown() {
+            wargaMenu.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-2');
+            wargaMenu.classList.add('opacity-100', 'translate-y-0');
+            if (wargaDropdownArrow) wargaDropdownArrow.classList.add('rotate-180');
+            wargaSearchInput.focus();
+            activeOptionIndex = -1;
+            highlightActiveOption();
+        }
+
+        function closeWargaDropdown() {
+            wargaMenu.classList.remove('opacity-100', 'translate-y-0');
+            wargaMenu.classList.add('opacity-0', 'pointer-events-none', '-translate-y-2');
+            if (wargaDropdownArrow) wargaDropdownArrow.classList.remove('rotate-180');
+            wargaSearchInput.value = '';
+            // Reset filter
+            wargaOptions.forEach(opt => {
+                opt.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-700');
+            });
+            if (wargaOptionClear) wargaOptionClear.classList.remove('hidden', 'bg-slate-100');
+            noWargaResults.classList.add('hidden');
+            activeOptionIndex = -1;
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!wargaContainer.contains(e.target)) {
+                closeWargaDropdown();
+            }
+        });
+
+        // Search filter logic
+        wargaSearchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            let hasResults = false;
+
+            wargaOptions.forEach(opt => {
+                const searchData = opt.getAttribute('data-search');
+                if (searchData.includes(query)) {
+                    opt.classList.remove('hidden');
+                    hasResults = true;
+                } else {
+                    opt.classList.add('hidden');
+                }
+            });
+
+            if (wargaOptionClear) {
+                if (query === '') {
+                    wargaOptionClear.classList.remove('hidden');
+                } else {
+                    wargaOptionClear.classList.add('hidden');
+                }
+            }
+
+            if (hasResults || query === '') {
+                noWargaResults.classList.add('hidden');
+            } else {
+                noWargaResults.classList.remove('hidden');
+            }
+
+            activeOptionIndex = -1;
+            highlightActiveOption();
+        });
+
+        // Keyboard navigation within search input
+        wargaSearchInput.addEventListener('keydown', function(e) {
+            const visibleOptions = Array.from(wargaOptionsList.querySelectorAll('.warga-option, .warga-option-clear'))
+                .filter(opt => !opt.classList.contains('hidden'));
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeOptionIndex = (activeOptionIndex + 1) % visibleOptions.length;
+                highlightActiveOption(visibleOptions);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeOptionIndex = (activeOptionIndex - 1 + visibleOptions.length) % visibleOptions.length;
+                highlightActiveOption(visibleOptions);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (activeOptionIndex >= 0 && activeOptionIndex < visibleOptions.length) {
+                    visibleOptions[activeOptionIndex].click();
+                } else if (visibleOptions.length > 0) {
+                    visibleOptions[0].click();
+                }
+            } else if (e.key === 'Escape') {
+                closeWargaDropdown();
+            }
+        });
+
+        function highlightActiveOption(customList) {
+            const visibleOptions = customList || Array.from(wargaOptionsList.querySelectorAll('.warga-option, .warga-option-clear'))
+                .filter(opt => !opt.classList.contains('hidden'));
+
+            visibleOptions.forEach((opt, idx) => {
+                if (idx === activeOptionIndex) {
+                    if (opt.classList.contains('warga-option-clear')) {
+                        opt.classList.add('bg-slate-100');
+                    } else {
+                        opt.classList.add('bg-emerald-50', 'text-emerald-700');
+                    }
+                    opt.scrollIntoView({ block: 'nearest' });
+                } else {
+                    opt.classList.remove('bg-slate-100', 'bg-emerald-50', 'text-emerald-700');
+                }
+            });
+        }
+
+        // Select option logic
+        wargaOptionsList.addEventListener('click', function(e) {
+            const target = e.target.closest('[data-value]');
+            if (!target) return;
+
+            const val = target.getAttribute('data-value');
+            const label = target.getAttribute('data-label');
+
+            selectedWargaId.value = val;
+            selectedWargaLabel.textContent = label;
+            
+            if (val === '') {
+                selectedWargaLabel.classList.add('text-on-surface-variant');
+                selectedWargaLabel.classList.remove('text-on-surface', 'font-bold');
+            } else {
+                selectedWargaLabel.classList.remove('text-on-surface-variant');
+                selectedWargaLabel.classList.add('text-on-surface', 'font-bold');
+            }
+
+            closeWargaDropdown();
+        });
+
+        // Set initial selected value if old() exists
+        const initialVal = selectedWargaId.value;
+        if (initialVal) {
+            const matchedOpt = Array.from(wargaOptions).find(opt => opt.getAttribute('data-value') == initialVal);
+            if (matchedOpt) {
+                selectedWargaLabel.textContent = matchedOpt.getAttribute('data-label');
+                selectedWargaLabel.classList.remove('text-on-surface-variant');
+                selectedWargaLabel.classList.add('text-on-surface', 'font-bold');
+            }
+        }
     });
 </script>
 @endpush

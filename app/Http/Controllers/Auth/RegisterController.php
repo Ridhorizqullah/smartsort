@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
 
 class RegisterController extends Controller
 {
@@ -20,23 +19,17 @@ class RegisterController extends Controller
     }
 
     /**
-     * Proses registrasi pengguna baru.
+     * Proses registrasi warga baru.
+     * Validasi ditangani oleh RegisterRequest (FormRequest).
      */
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
-        $request->validate([
-            'nik' => ['required', 'string', 'size:16', 'regex:/^[0-9]+$/', 'unique:users'],
-            'name' => ['required', 'string', 'max:255'],
-            'rt_rw' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
-
         $user = User::create([
-            'nik' => $request->nik,
-            'name' => $request->name,
-            'rt_rw' => $request->rt_rw,
+            'nik'      => $request->nik,
+            'name'     => $request->name,
+            'rt_rw'    => $request->rt_rw,
             'password' => Hash::make($request->password),
-            'role' => 'warga',
+            'role'     => 'warga',
         ]);
 
         // Auto login setelah mendaftar

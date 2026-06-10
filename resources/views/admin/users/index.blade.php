@@ -12,10 +12,10 @@
             <p class="text-sm text-slate-500 mt-1">Kelola data warga dan admin sistem.</p>
         </div>
         <!-- Tambah tombol tambah (Placeholder) -->
-        <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm shadow-emerald-200">
-            <span class="material-symbols-rounded text-[18px]">add</span>
-            Tambah User
-        </button>
+        <a href="{{ route('admin.users.create') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm shadow-emerald-200">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            Tambah Pengguna
+        </a>
     </div>
 
     <div class="overflow-x-auto">
@@ -60,12 +60,18 @@
                     </td>
                     <td class="p-4 text-center">
                         <div class="flex items-center justify-center gap-2">
-                            <button class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                                <span class="material-symbols-rounded text-[18px]">edit</span>
-                            </button>
-                            <button class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
-                                <span class="material-symbols-rounded text-[18px]">delete</span>
-                            </button>
+                            <a href="{{ route('admin.users.edit', $user->id) }}" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                <span class="material-symbols-outlined text-[18px]">edit</span>
+                            </a>
+                            @if($user->id !== auth()->id())
+                            <form action="{{ route('admin.users.destroy', $user->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus pengguna ini?');" class="inline">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                            </form>
+                            @endif
                         </div>
                     </td>
                 </tr>
@@ -73,7 +79,7 @@
                 <tr>
                     <td colspan="6" class="p-8 text-center text-slate-500">
                         <div class="flex flex-col items-center justify-center">
-                            <span class="material-symbols-rounded text-4xl text-slate-300 mb-2">person_off</span>
+                            <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">person_off</span>
                             <p>Belum ada data user.</p>
                         </div>
                     </td>

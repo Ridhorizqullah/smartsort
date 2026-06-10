@@ -38,7 +38,7 @@
                                 <ul class="text-sm space-y-1">
                                     @foreach($trx->details as $detail)
                                         <li class="flex justify-between border-b border-outline-variant/10 pb-1 last:border-0 last:pb-0">
-                                            <span>{{ $detail->category->name ?? 'Kategori' }} ({{ $detail->weight }} kg)</span>
+                                            <span>{{ $detail->wasteCategory->name ?? 'Kategori' }} ({{ $detail->weight }} kg)</span>
                                             <span class="font-semibold">+{{ number_format($detail->subtotal_point, 0, ',', '.') }} Poin</span>
                                         </li>
                                     @endforeach

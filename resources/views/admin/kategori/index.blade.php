@@ -11,10 +11,10 @@
             <h2 class="text-lg font-bold text-slate-800">Daftar Kategori Sampah</h2>
             <p class="text-sm text-slate-500 mt-1">Kelola jenis sampah dan harga tukar poinnya.</p>
         </div>
-        <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm shadow-emerald-200">
-            <span class="material-symbols-rounded text-[18px]">add</span>
+        <a href="{{ route('admin.kategori.create') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm shadow-emerald-200">
+            <span class="material-symbols-outlined text-[18px]">add</span>
             Tambah Kategori
-        </button>
+        </a>
     </div>
 
     <div class="overflow-x-auto">
@@ -45,12 +45,16 @@
                     </td>
                     <td class="p-4 text-center">
                         <div class="flex items-center justify-center gap-2">
-                            <button class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                                <span class="material-symbols-rounded text-[18px]">edit</span>
-                            </button>
-                            <button class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
-                                <span class="material-symbols-rounded text-[18px]">delete</span>
-                            </button>
+                            <a href="{{ route('admin.kategori.edit', $category->id) }}" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                <span class="material-symbols-outlined text-[18px]">edit</span>
+                            </a>
+                            <form action="{{ route('admin.kategori.destroy', $category->id) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus kategori ini?');" class="inline">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>
@@ -58,7 +62,7 @@
                 <tr>
                     <td colspan="5" class="p-8 text-center text-slate-500">
                         <div class="flex flex-col items-center justify-center">
-                            <span class="material-symbols-rounded text-4xl text-slate-300 mb-2">category</span>
+                            <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">category</span>
                             <p>Belum ada data kategori sampah.</p>
                         </div>
                     </td>

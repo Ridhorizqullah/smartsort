@@ -47,6 +47,7 @@
                 Approval Penukaran
             </a>
 
+            @if(Auth::user()->role === 'admin')
             <p class="px-4 pt-4 pb-2 text-xs font-bold text-on-surface-variant/60 uppercase tracking-wider">Master Data</p>
             
             <a href="{{ route('admin.users') }}" class="flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all {{ request()->routeIs('admin.users') ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary' }}">
@@ -63,6 +64,7 @@
                 <span class="material-symbols-outlined">featured_seasonal_and_gifts</span>
                 Daftar Reward
             </a>
+            @endif
         </nav>
 
         <div class="p-4 border-t border-outline-variant/30">

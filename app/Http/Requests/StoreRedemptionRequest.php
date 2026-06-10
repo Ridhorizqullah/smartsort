@@ -24,17 +24,15 @@ class StoreRedemptionRequest extends FormRequest
     {
         return [
             'idempotency_key' => ['required', 'string', 'unique:redemptions,idempotency_key'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.reward_id' => ['required', 'integer', 'exists:rewards,id'],
-            'items.*.qty' => ['required', 'integer', 'min:1'], // Minimal qty 1, anti minus/bypass
+            'reward_id' => ['required', 'integer', 'exists:rewards,id'],
+            'qty' => ['required', 'integer', 'min:1'], // Minimal qty 1, anti minus/bypass
         ];
     }
 
     public function messages(): array
     {
         return [
-            'items.*.qty.min' => 'Jumlah barang yang ditukar tidak boleh kurang dari 1.',
-            'items.min' => 'Minimal harus ada 1 barang yang ditukar.',
+            'qty.min' => 'Jumlah barang yang ditukar tidak boleh kurang dari 1.',
             'idempotency_key.unique' => 'Permintaan penukaran ini sedang atau telah diproses.',
         ];
     }

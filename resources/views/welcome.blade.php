@@ -32,8 +32,16 @@
 <li class=""><a class="text-gray-800 hover:text-primary transition-colors hover:opacity-90 duration-200" href="#kontak">Kontak</a></li>
 </ul>
 <div class="hidden md:flex items-center gap-stack-sm">
-<a href="{{ route('login') }}" class="text-gray-800 hover:text-primary transition-colors text-label-md font-label-md px-4 py-2 font-semibold">Login</a>
-<a href="{{ route('register') }}" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-label-md font-label-md hover:bg-primary-container transition-colors shadow-sm">Register</a>
+@auth
+    @if(Auth::user()->role === 'warga')
+        <a href="{{ route('warga.dashboard') }}" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-label-md font-label-md hover:bg-primary-container transition-colors shadow-sm">Dashboard Warga</a>
+    @else
+        <a href="{{ route('admin.dashboard') }}" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-label-md font-label-md hover:bg-primary-container transition-colors shadow-sm">Dashboard Admin</a>
+    @endif
+@else
+    <a href="{{ route('login') }}" class="text-gray-800 hover:text-primary transition-colors text-label-md font-label-md px-4 py-2 font-semibold">Login</a>
+    <a href="{{ route('register') }}" class="bg-primary text-on-primary px-4 py-2 rounded-lg text-label-md font-label-md hover:bg-primary-container transition-colors shadow-sm">Register</a>
+@endauth
 </div>
 </div>
 </nav>
