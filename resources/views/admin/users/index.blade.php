@@ -6,16 +6,24 @@
 
 @section('content')
 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-    <div class="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+    <div class="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50">
         <div>
             <h2 class="text-lg font-bold text-slate-800">Daftar Pengguna</h2>
             <p class="text-sm text-slate-500 mt-1">Kelola data warga dan admin sistem.</p>
         </div>
-        <!-- Tambah tombol tambah (Placeholder) -->
-        <a href="{{ route('admin.users.create') }}" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm shadow-emerald-200">
-            <span class="material-symbols-outlined text-[18px]">add</span>
-            Tambah Pengguna
-        </a>
+        
+        <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <form action="{{ route('admin.users') }}" method="GET" class="w-full sm:w-80 relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nama, NIK, email, RT/RW..." 
+                       class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors shadow-sm placeholder:text-slate-400">
+            </form>
+
+            <a href="{{ route('admin.users.create') }}" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm shadow-emerald-200 shrink-0">
+                <span class="material-symbols-outlined text-[18px]">add</span>
+                Tambah Pengguna
+            </a>
+        </div>
     </div>
 
     <div class="overflow-x-auto">

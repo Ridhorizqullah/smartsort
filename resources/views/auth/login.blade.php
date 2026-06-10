@@ -27,21 +27,24 @@
         }
     </style>
 </head>
-<body class="bg-background text-on-surface antialiased min-h-screen relative overflow-hidden flex items-center justify-center p-container-margin" style="font-family: 'Plus Jakarta Sans', sans-serif;">
-<!-- Background Image with Overlay -->
-<div class="absolute inset-0 z-0">
-<img alt="Background" class="w-full h-full object-cover object-center opacity-80" data-alt="A bright, modern, and highly sophisticated digital waste processing facility bathed in soft natural light filtering through large glass windows. The scene features sleek, clean white metallic surfaces and subtle emerald green accents, representing a high-end ecological initiative. The atmosphere is calm, tech-forward, and premium, completely avoiding messy or dirty stereotypes of waste management. The overall aesthetic is minimalist, airy, and trustworthy, perfect for a financial-grade environmental platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBY6VoXlik9s49XiOcFjzEJOHNs_dTs9XaEmsKVWOGzgEMbm-pUMknXSPEAOjmKh2VnrKEK83MF02bSr3Ofnxj0Zbrf6G3Ax2b1bcmq2-C-lF52nz9Jka0kMdARhHURmTGBsu0uVnBcHZ2OxcO_IusZciACwymr4Mzrmt0AIGOlOr_ivQOIpY-GYT279FRfFMG36fV_zSFrjsQrHnoz402Mun5TFXY4MLCoye5SVSX1bZ5l9ib9RLjZ71bGoajNCaZ-SBetL01tcfxc"/>
-<div class="absolute inset-0 bg-surface/30 mix-blend-overlay"></div>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen relative overflow-hidden flex items-center justify-center p-6" style="font-family: 'Plus Jakarta Sans', sans-serif;">
+<!-- Background Pattern/Gradient -->
+<div class="absolute inset-0 z-0 bg-linear-to-br from-emerald-50 via-slate-50 to-emerald-100">
+    <!-- Optional abstract shapes -->
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden opacity-40">
+        <div class="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-200/50 blur-[120px]"></div>
+        <div class="absolute bottom-[10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-300/30 blur-[100px]"></div>
+    </div>
 </div>
-<!-- Login Glass Card -->
-<main class="z-10 w-full max-w-[440px] glass-card rounded-xl p-stack-lg shadow-2xl shadow-primary/5 flex flex-col gap-stack-md transform transition-all duration-500 hover:shadow-primary/10">
+<!-- Login Card -->
+<main class="z-10 w-full max-w-[420px] bg-white/80 backdrop-blur-xl border border-white/50 rounded-2xl p-8 shadow-xl shadow-slate-200/50 flex flex-col gap-6 transform transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-100">
 <!-- Header -->
 <div class="text-center mb-base">
 <div class="flex justify-center items-center gap-2 mb-stack-sm">
     <span class="text-headline-md font-headline-lg text-primary font-bold tracking-tight text-3xl">SmartSort</span>
 </div>
 <h1 class="font-headline-md text-headline-md text-on-surface mb-1">Masuk ke Akun</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">SmartSort Village - Digital Waste Bank</p>
+<p class="font-body-md text-body-md text-on-surface-variant">SmartSort Digital Waste Bank</p>
 </div>
 <!-- Form -->
                 @if ($errors->any())

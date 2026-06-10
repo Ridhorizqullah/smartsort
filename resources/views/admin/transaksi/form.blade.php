@@ -61,9 +61,11 @@
                                 </div>
                             @endforeach
                             <!-- No Results State -->
-                            <div id="noWargaResults" class="px-4 py-6 text-center text-sm text-slate-500 hidden flex flex-col items-center">
-                                <span class="material-symbols-outlined text-slate-300 text-3xl mb-1">person_search</span>
-                                Warga tidak ditemukan
+                            <div id="noWargaResults" class="hidden">
+                                <div class="px-4 py-6 text-center text-sm text-slate-500 flex flex-col items-center">
+                                    <span class="material-symbols-outlined text-slate-300 text-3xl mb-1">person_search</span>
+                                    Warga tidak ditemukan
+                                </div>
                             </div>
                         </div>
                     </div>

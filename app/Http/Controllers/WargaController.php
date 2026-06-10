@@ -26,7 +26,67 @@ class WargaController extends Controller
             ->where('transactions.user_id', $user->id)
             ->sum('transaction_details.weight');
 
-        return view('warga.dashboard', compact('user', 'totalTransaksi', 'totalRedemption', 'totalSampah'));
+        // Total poin yang sudah digunakan (tidak termasuk yang ditolak)
+        $totalPoinDipakai = Redemption::where('user_id', $user->id)
+            ->where('status', '!=', 'rejected')
+            ->sum('total_point');
+
+        // Filter and Search for Redemptions
+        $query = Redemption::with('details.reward')->where('user_id', $user->id);
+
+        if (request()->filled('status')) {
+            $query->where('status', request('status'));
+        }
+
+        if (request()->filled('sort')) {
+            $sortDir = request('sort') === 'oldest' ? 'asc' : 'desc';
+            $query->orderBy('created_at', $sortDir);
+        } else {
+            $query->orderBy('created_at', 'desc'); // Default to newest
+        }
+
+        $dashboardRedemptions = $query->paginate(config('business.pagination_size', 5))->withQueryString();
+
+        // Setor sampah terakhir
+        $latestTransaction = Transaction::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        return view('warga.dashboard', compact(
+            'user', 'totalTransaksi', 'totalRedemption', 'totalSampah', 
+            'totalPoinDipakai', 'dashboardRedemptions', 'latestTransaction'
+        ));
+    }
+
+    /**
+     * Endpoint API untuk Warga Dashboard (Realtime Fetch).
+     */
+    public function apiStatus()
+    {
+        $user = auth()->user();
+
+        // Ambil 5 penukaran terbaru (seperti di dashboard default)
+        $latestRedemptions = Redemption::with('details.reward')
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($redemption) {
+                // Map the data to a simple JSON format
+                return [
+                    'id' => str_pad($redemption->id, 5, '0', STR_PAD_LEFT),
+                    'raw_id' => $redemption->id,
+                    'status' => $redemption->status,
+                    'item_name' => $redemption->details->first()->reward->name ?? 'Sembako',
+                    'additional_items_count' => $redemption->details->count() > 1 ? $redemption->details->count() - 1 : 0,
+                    'tanggal_ambil' => $redemption->tanggal_ambil ? \Carbon\Carbon::parse($redemption->tanggal_ambil)->translatedFormat('d F Y') : null,
+                ];
+            });
+
+        return response()->json([
+            'saldo' => $user->saldo_poin,
+            'redemptions' => $latestRedemptions
+        ]);
     }
 
     /**

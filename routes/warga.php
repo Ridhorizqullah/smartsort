@@ -16,8 +16,9 @@ Route::middleware(['auth', 'role:warga'])
     ->name('warga.')
     ->group(function () {
 
-        // Dashboard
+        // Dashboard & Realtime API
         Route::get('/dashboard', [WargaController::class, 'dashboard'])->name('dashboard');
+        Route::get('/api/status', [WargaController::class, 'apiStatus'])->name('api.status');
 
         // Riwayat Setoran Sampah
         Route::get('/transaksi', [WargaController::class, 'transaksi'])->name('transaksi');
