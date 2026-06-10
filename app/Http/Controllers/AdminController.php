@@ -85,15 +85,109 @@ class AdminController extends Controller
     }
 
     /**
-     * Daftar penukaran yang masuk (pending, dll).
+     * Membangun query penukaran dengan filter.
+     */
+    private function buildRedemptionQuery()
+    {
+        $query = Redemption::with(['user', 'details.reward']);
+
+        // Filter Search (Name, NIK, or Ticket ID)
+        if ($search = request('search')) {
+            $query->where(function ($q) use ($search) {
+                // If the search looks like an ID ticket (e.g. #RED-00012 or just 12)
+                $cleanSearch = str_replace('#RED-', '', strtoupper($search));
+                if (is_numeric($cleanSearch)) {
+                    $q->where('id', (int)$cleanSearch);
+                }
+
+                $q->orWhere('idempotency_key', 'like', "%{$search}%");
+
+                // Search in user relationship
+                $q->orWhereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'like', "%{$search}%")
+                              ->orWhere('nik', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        // Filter Waktu
+        if ($time = request('time_filter')) {
+            $now = now();
+            if ($time === 'hari_ini') {
+                $query->whereDate('created_at', $now->toDateString());
+            } elseif ($time === 'minggu_ini') {
+                $query->whereBetween('created_at', [$now->startOfWeek()->toDateTimeString(), $now->endOfWeek()->toDateTimeString()]);
+            } elseif ($time === 'bulan_ini') {
+                $query->whereMonth('created_at', $now->month)->whereYear('created_at', $now->year);
+            } elseif ($time === 'bulan_lalu') {
+                $lastMonth = $now->copy()->subMonth();
+                $query->whereMonth('created_at', $lastMonth->month)->whereYear('created_at', $lastMonth->year);
+            } elseif ($time === 'tahun_ini') {
+                $query->whereYear('created_at', $now->year);
+            }
+        }
+
+        // Filter Status
+        if ($status = request('status_filter')) {
+            $query->where('status', $status);
+        }
+
+        return $query->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Daftar penukaran yang masuk (pending, dll) beserta filternya.
      */
     public function redemptionList()
     {
-        $redemptions = Redemption::with(['user', 'details.reward'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(config('business.pagination_size', 10));
+        $redemptions = $this->buildRedemptionQuery()
+            ->paginate(config('business.pagination_size', 10))
+            ->withQueryString();
 
         return view('admin.penukaran.index', compact('redemptions'));
+    }
+
+    /**
+     * Export data penukaran ke format CSV Sederhana.
+     */
+    public function exportRedemption()
+    {
+        $query = $this->buildRedemptionQuery();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="Laporan_Penukaran_SmartSort_' . date('Y-m-d_H-i') . '.csv"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0'
+        ];
+
+        $callback = function () use ($query) {
+            $file = fopen('php://output', 'w');
+            
+            // CSV Header
+            fputcsv($file, ['ID Tiket', 'Tanggal', 'Nama Warga', 'NIK Warga', 'Item Sembako', 'Status', 'Potongan Poin']);
+
+            // Cursor() saves memory for large datasets
+            foreach ($query->cursor() as $redemption) {
+                $ticketId = '#RED-' . str_pad($redemption->id, 5, '0', STR_PAD_LEFT);
+                $tanggal = $redemption->created_at->format('d M Y H:i');
+                $nama = $redemption->user->name ?? 'Warga Tidak Ditemukan';
+                $nik = $redemption->user->nik ?? '-';
+                $status = strtoupper($redemption->status);
+                $totalPoint = $redemption->total_point;
+                
+                // Gabung item sembako jadi 1 string
+                $items = $redemption->details->map(function ($detail) {
+                    return $detail->qty . 'x ' . ($detail->reward->name ?? 'Reward');
+                })->implode(', ');
+
+                fputcsv($file, [$ticketId, $tanggal, $nama, $nik, $items, $status, $totalPoint]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     /**

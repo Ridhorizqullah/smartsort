@@ -24,6 +24,7 @@ Route::middleware(['auth', 'role:admin,petugas'])
         Route::post('/transaksi', [AdminController::class, 'transaksiStore'])->name('transaksi.store');
 
         // Penukaran Barang (Redemption)
+        Route::get('/penukaran/export', [AdminController::class, 'exportRedemption'])->name('penukaran.export');
         Route::get('/penukaran', [AdminController::class, 'redemptionList'])->name('penukaran');
         Route::post('/penukaran/{id}/approve', [AdminController::class, 'approveRedemption'])->name('penukaran.approve');
         Route::post('/penukaran/{id}/reject', [AdminController::class, 'rejectRedemption'])->name('penukaran.reject');

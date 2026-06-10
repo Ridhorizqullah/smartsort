@@ -15,6 +15,75 @@
             {{ $redemptions->total() }} Tiket Masuk
         </div>
     </div>
+
+    <!-- Filter & Search Bar -->
+<div class="px-6 py-4 border-b border-outline-variant/30 bg-surface-container-lowest">
+
+    <!-- ✅ ROW 1: SEARCH (CENTER) -->
+    <div class="flex justify-center mb-4">
+        <div class="relative w-full md:w-[500px] lg:w-[600px]">
+
+            <span class="material-symbols-outlined 
+                absolute left-3.5 top-1/2 -translate-y-1/2 text-[20px] z-10 pointer-events-none">
+                search
+            </span>
+
+            <input type="text"
+                name="search"
+                value="{{ request('search') }}"
+                placeholder="Cari Nama / NIK / ID Tiket..."
+                class="w-full pr-4 py-2 bg-white border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                style="padding-left: 2.75rem;">
+
+        </div>
+    </div>
+
+        <!-- ✅ ROW 2: FILTER + EXPORT -->
+        <form method="GET" action="{{ route('admin.penukaran') }}" 
+            class="flex flex-wrap items-center justify-between gap-3">
+
+            <div class="flex flex-wrap items-center gap-3">
+
+                <!-- Time Filter -->
+                <select name="time_filter" class="px-3 py-2 border rounded-xl text-sm">
+                    <option value="">Semua Waktu</option>
+                    <option value="hari_ini">Hari Ini</option>
+                    <option value="minggu_ini">Minggu Ini</option>
+                    <option value="bulan_ini">Bulan Ini</option>
+                    <option value="bulan_lalu">Bulan Lalu</option>
+                    <option value="tahun_ini">Tahun Ini</option>
+                </select>
+
+                <!-- Status Filter -->
+                <select name="status_filter" class="px-3 py-2 border rounded-xl text-sm">
+                    <option value="">Semua Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="ready">Ready</option>
+                    <option value="completed">Completed</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+
+                <!-- Filter Button -->
+                <button class="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold">
+                    Filter
+                </button>
+
+            </div>
+
+            <!-- ✅ EXPORT -->
+            <button type="submit"
+                formaction="{{ route('admin.penukaran.export') }}"
+                class="px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded-xl text-sm font-bold flex items-center gap-1">
+                
+                <span class="material-symbols-outlined text-sm">download</span>
+                Export CSV
+            </button>
+
+        </form>
+
+    </div>
+
     
     <div class="overflow-x-auto">
         <table class="w-full text-left text-sm whitespace-nowrap">
