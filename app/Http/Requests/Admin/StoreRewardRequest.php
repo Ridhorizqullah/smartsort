@@ -15,7 +15,7 @@ class StoreRewardRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255', 'unique:rewards,name'],
-            'point_cost' => ['required', 'numeric', 'min:0'],
+            'point_cost' => ['required', 'numeric', 'min:1'],
             'stock' => ['required', 'integer', 'min:0'],
         ];
     }

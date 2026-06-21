@@ -65,6 +65,10 @@ class RedemptionService
                     if (!$reward) {
                         throw new Exception("Reward dengan ID {$item['reward_id']} tidak ditemukan.");
                     }
+                    // [FINANCIAL GUARD] Pastikan point_cost > 0
+                    if ($reward->point_cost <= 0) {
+                        throw new Exception("Biaya poin untuk reward '{$reward->name}' tidak valid (harus > 0).");
+                    }
                     $totalPoint += round($reward->point_cost * $item['qty'], 2);
                 }
                 $totalPoint = round($totalPoint, 2);
@@ -116,6 +120,26 @@ class RedemptionService
      */
     public function approveRedemption($redemptionId, $adminId, $tanggalAmbil)
     {
+        // [FIX BUG 5] Cek expire SEBELUM masuk transaksi utama.
+        // Jika dilakukan di dalam DB::transaction lalu throw exception,
+        // update status akan di-rollback (silent failure).
+        $preCheck = Redemption::find($redemptionId);
+        if ($preCheck && $preCheck->status === 'pending' && now()->greaterThan($preCheck->expires_at)) {
+            DB::transaction(function () use ($preCheck, $adminId) {
+                $redemption = Redemption::where('id', $preCheck->id)->lockForUpdate()->firstOrFail();
+                // Double check di dalam lock agar aman dari race condition
+                if ($redemption->status === 'pending' && now()->greaterThan($redemption->expires_at)) {
+                    $redemption->update([
+                        'admin_id'      => $adminId,
+                        'status'        => 'rejected',
+                        'rejected_at'   => now(),
+                        'catatan_admin' => 'Batal Otomatis: Batas waktu penukaran habis (Expired).',
+                    ]);
+                }
+            });
+            throw new Exception("Persetujuan gagal: Permintaan warga telah kedaluwarsa dan otomatis dibatalkan.");
+        }
+
         try {
             return DB::transaction(function () use ($redemptionId, $adminId, $tanggalAmbil) {
                 // 1. KONSISTENSI LOCKING URUTAN: Redemption -> User -> Reward
@@ -126,16 +150,16 @@ class RedemptionService
                     throw new Exception("Persetujuan gagal: Status tiket tidak valid (Bukan Pending).");
                 }
 
-                // Validasi kadaluarsa
+                // Validasi kadaluarsa (double-check di dalam lock)
                 if (now()->greaterThan($redemption->expires_at)) {
-                    // Update inside the same transaction directly instead of calling a separate non-transaction method
                     $redemption->update([
-                        'admin_id' => $adminId,
-                        'status' => 'rejected',
-                        'rejected_at' => now(),
-                        'catatan_admin' => "Batal Otomatis: Batas waktu penukaran habis (Expired)."
+                        'admin_id'      => $adminId,
+                        'status'        => 'rejected',
+                        'rejected_at'   => now(),
+                        'catatan_admin' => 'Batal Otomatis: Batas waktu penukaran habis (Expired).',
                     ]);
-                    throw new Exception("Persetujuan gagal: Permintaan warga telah kedaluwarsa.");
+                    // Commit update ini dengan mengembalikan hasil, BUKAN throw di sini
+                    return $redemption;
                 }
                 
                 // 2. Lock Saldo Warga
@@ -159,19 +183,25 @@ class RedemptionService
                 $user->saldo_poin = round($user->saldo_poin - $redemption->total_point, 2);
                 $user->save();
 
+                // [FINANCIAL GUARD] Pastikan saldo tidak minus setelah debit
+                // Ini adalah defence-in-depth — seharusnya sudah dicegah oleh cek saldo di atas
+                if ($user->saldo_poin < 0) {
+                    throw new Exception("[CRITICAL] Inkonsistensi: Saldo warga menjadi negatif setelah debit. Transaksi dibatalkan untuk keamanan data.");
+                }
+
                 // 5. Catat Ledger Point (Debit)
                 PointLedger::create([
-                    'user_id' => $user->id,
-                    'type' => 'debit',
-                    'amount' => $redemption->total_point,
+                    'user_id'       => $user->id,
+                    'type'          => 'debit',
+                    'amount'        => $redemption->total_point,
                     'redemption_id' => $redemption->id
                 ]);
 
                 // 6. Update Status Header ke Approved
                 $redemption->update([
-                    'admin_id' => $adminId,
-                    'status' => 'approved',
-                    'approved_at' => now(),
+                    'admin_id'      => $adminId,
+                    'status'        => 'approved',
+                    'approved_at'   => now(),
                     'tanggal_ambil' => $tanggalAmbil
                 ]);
 

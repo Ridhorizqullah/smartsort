@@ -123,7 +123,7 @@
                     {{ number_format(auth()->user()->saldo_poin ?? 0, 0, ',', '.') }} Poin
                 </div>
                 <!-- Simple Logout Form -->
-                <form method="POST" action="{{ route('logout') }}" class="inline">
+                <form method="POST" action="{{ route('logout') }}" class="inline" id="logout-form">
                     @csrf
                     <button type="submit" class="text-on-surface-variant hover:text-error transition-colors p-2 rounded-full">
                         <span class="material-symbols-outlined">logout</span>
@@ -154,5 +154,17 @@
     </footer>
 
     @yield('scripts')
+
+    <script>
+    // Bersihkan localStorage saat logout agar data sesi tidak tertinggal di browser
+    (function () {
+        const logoutForm = document.getElementById('logout-form');
+        if (logoutForm) {
+            logoutForm.addEventListener('submit', function () {
+                localStorage.removeItem('smartsort_redemptions');
+            });
+        }
+    })();
+    </script>
 </body>
 </html>

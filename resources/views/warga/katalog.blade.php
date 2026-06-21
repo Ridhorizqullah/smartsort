@@ -74,4 +74,20 @@
         </div>
     @endif
 </section>
+
+@section('scripts')
+<script>
+// Proteksi double-submit: disable tombol setelah form disubmit
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form[action*="penukaran"]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        });
+    });
+});
+</script>
 @endsection

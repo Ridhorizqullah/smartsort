@@ -112,73 +112,80 @@ class RedemptionSeeder extends Seeder
             ],
         ];
 
+        $redemptionService = app(\App\Services\RedemptionService::class);
+
         foreach ($redemptionData as $data) {
             $warga = $wargas->get($data['warga']);
             if (!$warga) continue;
 
-            // Hitung total poin
-            $totalPoint = 0;
-            $details    = [];
-
+            $items = [];
             foreach ($data['items'] as [$rewardName, $qty]) {
                 $reward = $rewards->get($rewardName);
                 if (!$reward) continue;
 
-                $subtotal    = round($reward->point_cost * $qty, 2);
-                $totalPoint += $subtotal;
-                $details[]   = [
-                    'reward'         => $reward,
-                    'qty'            => $qty,
-                    'point_snapshot' => $reward->point_cost,
-                    'subtotal_point' => $subtotal,
+                $items[] = [
+                    'reward_id' => $reward->id,
+                    'qty'       => $qty,
                 ];
             }
 
-            $totalPoint = round($totalPoint, 2);
+            // 1. Request redemption (creates pending ticket)
+            $redemption = $redemptionService->requestRedemption(
+                $warga->id,
+                $items,
+                Str::uuid()->toString()
+            );
 
-            // Buat header redemption
-            $redemption = Redemption::create([
-                'user_id'         => $warga->id,
-                'admin_id'        => in_array($data['status'], ['approved', 'ready', 'completed', 'rejected']) ? $admin->id : null,
-                'total_point'     => $totalPoint,
-                'status'          => $data['status'],
-                'tanggal_ambil'   => $data['tanggal_ambil'] ?? null,
-                'catatan_admin'   => $data['catatan_admin'] ?? null,
-                'idempotency_key' => Str::uuid()->toString(),
-                'approved_at'     => in_array($data['status'], ['approved', 'ready', 'completed']) ? $data['date']->copy()->addDays(1) : null,
-                'ready_at'        => in_array($data['status'], ['ready', 'completed']) ? $data['date']->copy()->addDays(2) : null,
-                'completed_at'    => $data['completed_at'] ?? null,
-                'rejected_at'     => $data['status'] === 'rejected' ? $data['date']->copy()->addDays(1) : null,
-                'expires_at'      => $data['date']->copy()->addDays(2),
-                'created_at'      => $data['date'],
-                'updated_at'      => $data['date'],
+            // 2. Transition through the statuses using the service methods
+            if (in_array($data['status'], ['approved', 'ready', 'completed'])) {
+                $tanggalAmbil = $data['tanggal_ambil'] ?? now()->addDays(2)->toDateString();
+                $redemptionService->approveRedemption($redemption->id, $admin->id, $tanggalAmbil);
+            }
+
+            if (in_array($data['status'], ['ready', 'completed'])) {
+                $redemptionService->markAsReady($redemption->id);
+            }
+
+            if ($data['status'] === 'completed') {
+                $redemptionService->markAsCompleted($redemption->id);
+            }
+
+            if ($data['status'] === 'rejected') {
+                $catatan = $data['catatan_admin'] ?? 'Permohonan ditolak oleh admin.';
+                $redemptionService->rejectRedemption($redemption->id, $admin->id, $catatan);
+            }
+
+            // 3. Update timestamps of all created models to match history
+            $redemption->refresh();
+            
+            $redemption->created_at = $data['date'];
+            $redemption->updated_at = $data['date'];
+            
+            if ($redemption->approved_at) {
+                $redemption->approved_at = $data['date']->copy()->addDays(1);
+            }
+            if ($redemption->ready_at) {
+                $redemption->ready_at = $data['date']->copy()->addDays(2);
+            }
+            if ($redemption->completed_at) {
+                $redemption->completed_at = $data['completed_at'];
+            }
+            if ($redemption->rejected_at) {
+                $redemption->rejected_at = $data['date']->copy()->addDays(1);
+            }
+            
+            $redemption->expires_at = $data['date']->copy()->addDays(2);
+            $redemption->save(['timestamps' => false]);
+
+            RedemptionDetail::where('redemption_id', $redemption->id)->update([
+                'created_at' => $data['date'],
+                'updated_at' => $data['date'],
             ]);
 
-            // Buat detail redemption
-            foreach ($details as $detail) {
-                RedemptionDetail::create([
-                    'redemption_id'  => $redemption->id,
-                    'reward_id'      => $detail['reward']->id,
-                    'qty'            => $detail['qty'],
-                    'point_snapshot' => $detail['point_snapshot'],
-                    'subtotal_point' => $detail['subtotal_point'],
-                    'created_at'     => $data['date'],
-                    'updated_at'     => $data['date'],
-                ]);
-            }
-
-            // Catat debit di PointLedger hanya jika sudah approved/completed/ready
-            if (in_array($data['status'], ['approved', 'ready', 'completed'])) {
-                PointLedger::create([
-                    'user_id'       => $warga->id,
-                    'type'          => 'debit',
-                    'amount'        => $totalPoint,
-                    'redemption_id' => $redemption->id,
-                    'description'   => 'Penukaran poin ke sembako #' . $redemption->id,
-                    'created_at'    => $data['date'],
-                    'updated_at'    => $data['date'],
-                ]);
-            }
+            PointLedger::where('redemption_id', $redemption->id)->update([
+                'created_at' => $data['date'],
+                'updated_at' => $data['date'],
+            ]);
         }
     }
 }

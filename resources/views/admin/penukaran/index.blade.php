@@ -175,14 +175,34 @@
                                     Tolak
                                 </button>
                             </div>
+                        @elseif($redemption->status == 'approved')
+                            <div class="flex items-center justify-center">
+                                <form method="POST" action="{{ route('admin.penukaran.ready', $redemption->id) }}" class="inline">
+                                    @csrf
+                                    <button type="submit" 
+                                        class="h-9 px-3 bg-primary hover:bg-primary-container text-on-primary rounded-xl font-bold flex items-center justify-center gap-1 transition-all shadow-sm text-xs hover:-translate-y-0.5 active:scale-95">
+                                        <span class="material-symbols-outlined text-sm">inventory_2</span>
+                                        Siap Diambil
+                                    </button>
+                                </form>
+                            </div>
+                        @elseif($redemption->status == 'ready')
+                            <div class="flex items-center justify-center">
+                                <form method="POST" action="{{ route('admin.penukaran.complete', $redemption->id) }}" class="inline">
+                                    @csrf
+                                    <button type="submit" 
+                                        class="h-9 px-3 bg-primary hover:bg-primary-container text-on-primary rounded-xl font-bold flex items-center justify-center gap-1 transition-all shadow-sm text-xs hover:-translate-y-0.5 active:scale-95">
+                                        <span class="material-symbols-outlined text-sm">task_alt</span>
+                                        Diserahkan
+                                    </button>
+                                </form>
+                            </div>
                         @else
-                            <div class="text-center text-xs text-on-surface-variant font-semibold">
+                            <div class="text-center text-xs font-semibold">
                                 @if($redemption->status == 'rejected')
                                     <span class="text-error" title="Alasan: {{ $redemption->catatan_admin ?? 'Tidak ada catatan' }}">Ditolak</span>
-                                @elseif($redemption->status == 'approved')
-                                    <span class="text-primary">Disetujui</span>
-                                @else
-                                    <span class="text-on-surface-variant capitalize">{{ $redemption->status }}</span>
+                                @elseif($redemption->status == 'completed')
+                                    <span class="text-on-surface-variant/70">Selesai</span>
                                 @endif
                             </div>
                         @endif

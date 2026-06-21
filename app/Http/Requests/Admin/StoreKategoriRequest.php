@@ -16,7 +16,7 @@ class StoreKategoriRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255', 'unique:waste_categories,name'],
             'description' => ['nullable', 'string'],
-            'price_per_kg' => ['required', 'numeric', 'min:0'],
+            'price_per_kg' => ['required', 'numeric', 'min:1'],
         ];
     }
 }

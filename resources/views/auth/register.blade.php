@@ -11,22 +11,21 @@
 
 <style>
         .glass-card {
-            background: rgba(255, 255, 255, 0.8);
+            background-color: rgba(247, 249, 251, 0.75); /* surface color with opacity */
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
             border: 1px solid rgba(255, 255, 255, 0.4);
         }
         .input-glow:focus-within {
-            box-shadow: 0 0 0 4px rgba(0, 107, 44, 0.1);
+            box-shadow: 0 0 0 2px rgba(0, 107, 44, 0.2); /* primary color glow */
+        }
+        .bg-gradient-custom {
+            background: linear-gradient(135deg, #e9fdf6 0%, #ffffff 50%, #e0f2f1 100%);
         }
     </style>
 </head>
-<body class="bg-background min-h-screen flex flex-col font-body-md text-on-background antialiased relative overflow-x-hidden" style="font-family: 'Plus Jakarta Sans', sans-serif;">
-<!-- Background Image with Overlay -->
-<div class="absolute inset-0 z-0">
-<img alt="Background" class="w-full h-full object-cover object-center opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBY6VoXlik9s49XiOcFjzEJOHNs_dTs9XaEmsKVWOGzgEMbm-pUMknXSPEAOjmKh2VnrKEK83MF02bSr3Ofnxj0Zbrf6G3Ax2b1bcmq2-C-lF52nz9Jka0kMdARhHURmTGBsu0uVnBcHZ2OxcO_IusZciACwymr4Mzrmt0AIGOlOr_ivQOIpY-GYT279FRfFMG36fV_zSFrjsQrHnoz402Mun5TFXY4MLCoye5SVSX1bZ5l9ib9RLjZ71bGoajNCaZ-SBetL01tcfxc"/>
-<div class="absolute inset-0 bg-surface/30 mix-blend-overlay"></div>
-</div>
+<body class="bg-gradient-custom min-h-screen flex flex-col font-body-md text-on-background antialiased relative overflow-x-hidden" style="font-family: 'Plus Jakarta Sans', sans-serif;">
+<!-- Background Image removed -->
 <!-- Main Content -->
 <main class="grow flex items-center justify-center relative z-10 px-gutter py-section-gap">
 <div class="w-full max-w-[500px]">

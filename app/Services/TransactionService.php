@@ -37,6 +37,10 @@ class TransactionService
             if (!isset($item['weight']) || $item['weight'] <= 0) {
                 throw new Exception("Berat item harus lebih besar dari 0.");
             }
+            // [SECURITY] Batas atas per item: mencegah overflow kalkulasi poin
+            if ($item['weight'] > 10000) {
+                throw new Exception("Berat item tidak boleh melebihi 10.000 kg per item.");
+            }
             $catId = $item['waste_category_id'];
             if (isset($groupedItems[$catId])) {
                 $groupedItems[$catId]['weight'] += $item['weight'];
@@ -79,6 +83,10 @@ class TransactionService
                     }
 
                     // [CRITICAL] Float Precision using round()
+                    // Validasi price_per_kg > 0 agar tidak menciptakan ledger dengan amount 0
+                    if ($category->price_per_kg <= 0) {
+                        throw new Exception("Harga per kg untuk kategori '{$category->name}' tidak valid (harus > 0).");
+                    }
                     $point = round($item['weight'] * $category->price_per_kg, 2);
                     $totalPoint += $point;
 
@@ -93,11 +101,23 @@ class TransactionService
 
                 // 4. Update Header Transaksi (menggunakan precision juga untuk amannya)
                 $totalPoint = round($totalPoint, 2);
+
+                // [FINANCIAL GUARD] Pastikan total poin > 0 sebelum menyimpan ke DB
+                // Mencegah ledger credit dengan amount 0 yang merusak rekonsiliasi
+                if ($totalPoint <= 0) {
+                    throw new Exception("Transaksi gagal: Total poin yang dihitung adalah 0. Periksa berat dan harga kategori.");
+                }
+
                 $transaction->update(['total_point' => $totalPoint]);
 
                 // 5. Update Saldo User secara aman (karena sudah di-lock sebelumnya)
                 $user->saldo_poin += $totalPoint;
                 $user->save();
+
+                // [FINANCIAL GUARD] Pastikan saldo tidak negatif (tidak mungkin di credit, tapi defence-in-depth)
+                if ($user->saldo_poin < 0) {
+                    throw new Exception("[CRITICAL] Inkonsistensi: Saldo menjadi negatif setelah kredit. Transaksi dibatalkan.");
+                }
 
                 // 6. Catat Point Ledger untuk audit trail
                 PointLedger::create([

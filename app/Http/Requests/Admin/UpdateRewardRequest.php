@@ -16,7 +16,7 @@ class UpdateRewardRequest extends FormRequest
         $id = $this->route('id');
         return [
             'name' => ['required', 'string', 'max:255', 'unique:rewards,name,' . $id],
-            'point_cost' => ['required', 'numeric', 'min:0'],
+            'point_cost' => ['required', 'numeric', 'min:1'],
             'stock' => ['required', 'integer', 'min:0'],
         ];
     }

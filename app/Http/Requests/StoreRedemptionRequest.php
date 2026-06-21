@@ -25,7 +25,7 @@ class StoreRedemptionRequest extends FormRequest
         return [
             'idempotency_key' => ['required', 'string', 'unique:redemptions,idempotency_key'],
             'reward_id' => ['required', 'integer', 'exists:rewards,id'],
-            'qty' => ['required', 'integer', 'min:1'], // Minimal qty 1, anti minus/bypass
+            'qty' => ['required', 'integer', 'min:1', 'max:999'], // Anti bypass qty tidak wajar
         ];
     }
 

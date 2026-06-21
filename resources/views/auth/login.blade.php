@@ -35,7 +35,7 @@
         <div class="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-200/50 blur-[120px]"></div>
         <div class="absolute bottom-[10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-300/30 blur-[100px]"></div>
     </div>
-</div>
+</div> 
 <!-- Login Card -->
 <main class="z-10 w-full max-w-[420px] bg-white/80 backdrop-blur-xl border border-white/50 rounded-2xl p-8 shadow-xl shadow-slate-200/50 flex flex-col gap-6 transform transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-100">
 <!-- Header -->

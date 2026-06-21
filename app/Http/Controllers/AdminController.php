@@ -222,6 +222,34 @@ class AdminController extends Controller
         }
     }
 
+    
+    public function markRedemptionReady($id, RedemptionService $redemptionService)
+    {
+        abort_if(!$id, 404);
+
+        try {
+            $redemptionService->markAsReady($id);
+            return back()->with('success', 'Paket sembako berhasil ditandai siap diambil!');
+        } catch (Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Tandai penukaran selesai diserahkan ke warga (completed).
+     */
+    public function markRedemptionCompleted($id, RedemptionService $redemptionService)
+    {
+        abort_if(!$id, 404);
+
+        try {
+            $redemptionService->markAsCompleted($id);
+            return back()->with('success', 'Penukaran berhasil diselesaikan! Sembako telah diserahkan.');
+        } catch (Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
     // ==========================================
     // CRUD PENGGUNA (USERS)
     // ==========================================

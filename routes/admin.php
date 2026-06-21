@@ -28,6 +28,8 @@ Route::middleware(['auth', 'role:admin,petugas'])
         Route::get('/penukaran', [AdminController::class, 'redemptionList'])->name('penukaran');
         Route::post('/penukaran/{id}/approve', [AdminController::class, 'approveRedemption'])->name('penukaran.approve');
         Route::post('/penukaran/{id}/reject', [AdminController::class, 'rejectRedemption'])->name('penukaran.reject');
+        Route::post('/penukaran/{id}/ready', [AdminController::class, 'markRedemptionReady'])->name('penukaran.ready');
+        Route::post('/penukaran/{id}/complete', [AdminController::class, 'markRedemptionCompleted'])->name('penukaran.complete');
 
         // Master Data (Hanya Admin)
         Route::middleware(['role:admin'])->group(function () {

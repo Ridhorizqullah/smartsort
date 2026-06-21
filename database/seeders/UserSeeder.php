@@ -57,7 +57,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111101',
                 'rt_rw'      => 'RT 01 / RW 02',
                 'address'    => 'Jl. Mawar No. 12',
-                'saldo_poin' => 45000,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010102',
@@ -66,7 +66,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111102',
                 'rt_rw'      => 'RT 02 / RW 01',
                 'address'    => 'Jl. Melati No. 7',
-                'saldo_poin' => 28000,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010103',
@@ -75,7 +75,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111103',
                 'rt_rw'      => 'RT 03 / RW 02',
                 'address'    => 'Jl. Kenanga No. 3',
-                'saldo_poin' => 62000,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010104',
@@ -84,7 +84,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111104',
                 'rt_rw'      => 'RT 01 / RW 03',
                 'address'    => 'Jl. Anggrek No. 21',
-                'saldo_poin' => 15000,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010105',
@@ -93,7 +93,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111105',
                 'rt_rw'      => 'RT 04 / RW 01',
                 'address'    => 'Jl. Flamboyan No. 9',
-                'saldo_poin' => 33500,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010106',
@@ -102,7 +102,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111106',
                 'rt_rw'      => 'RT 02 / RW 03',
                 'address'    => 'Jl. Dahlia No. 15',
-                'saldo_poin' => 77500,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010107',
@@ -111,7 +111,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111107',
                 'rt_rw'      => 'RT 03 / RW 03',
                 'address'    => 'Jl. Bougenville No. 6',
-                'saldo_poin' => 9500,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010108',
@@ -120,7 +120,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111108',
                 'rt_rw'      => 'RT 01 / RW 04',
                 'address'    => 'Jl. Teratai No. 18',
-                'saldo_poin' => 51000,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010109',
@@ -129,7 +129,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111109',
                 'rt_rw'      => 'RT 04 / RW 02',
                 'address'    => 'Jl. Cempaka No. 4',
-                'saldo_poin' => 22000,
+                'saldo_poin' => 0,
             ],
             [
                 'nik'        => '3201010101010110',
@@ -138,7 +138,7 @@ class UserSeeder extends Seeder
                 'phone'      => '08111111110',
                 'rt_rw'      => 'RT 05 / RW 01',
                 'address'    => 'Jl. Seruni No. 11',
-                'saldo_poin' => 40000,
+                'saldo_poin' => 0,
             ],
         ];
 

@@ -48,6 +48,15 @@ class PointLedger extends Model
     {
         parent::boot();
 
+        // Enforce ledger immutability
+        static::updating(function ($ledger) {
+            throw new \Exception("Ledger point bersifat immutable dan tidak boleh diubah setelah disimpan.");
+        });
+
+        static::deleting(function ($ledger) {
+            throw new \Exception("Ledger point bersifat immutable dan tidak boleh dihapus.");
+        });
+
         static::saving(function ($ledger) {
             $hasTransaction = !empty($ledger->transaction_id);
             $hasRedemption = !empty($ledger->redemption_id);

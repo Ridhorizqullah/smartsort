@@ -26,9 +26,10 @@ class WargaController extends Controller
             ->where('transactions.user_id', $user->id)
             ->sum('transaction_details.weight');
 
-        // Total poin yang sudah digunakan (tidak termasuk yang ditolak)
+        // Total poin yang sudah benar-benar dipotong (hanya status approved, ready, completed)
+        // Status pending BELUM dipotong saldo, jadi tidak dihitung di sini
         $totalPoinDipakai = Redemption::where('user_id', $user->id)
-            ->where('status', '!=', 'rejected')
+            ->whereIn('status', ['approved', 'ready', 'completed'])
             ->sum('total_point');
 
         // Filter and Search for Redemptions

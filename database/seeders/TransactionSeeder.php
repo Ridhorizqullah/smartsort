@@ -28,115 +28,98 @@ class TransactionSeeder extends Seeder
         }
 
         // 10 data transaksi: setiap entri berisi [nama warga, [kategori => berat_kg]]
+        // Berat item telah disesuaikan agar total poin mencakup saldo awal lama + poin transaksi asli
         $transaksiData = [
             [
                 'warga'  => 'Siti Rahayu',
-                'items'  => [['Kertas', 5.0], ['Kardus', 3.5]],
+                'items'  => [['Kertas', 5.0], ['Kardus', 3.5], ['Elektronik (e-waste)', 9.0]],
                 'date'   => now()->subDays(30),
             ],
             [
                 'warga'  => 'Ahmad Fauzi',
-                'items'  => [['Plastik Botol', 4.0], ['Plastik Kresek', 2.0]],
+                'items'  => [['Plastik Botol', 18.0], ['Plastik Kresek', 2.0]],
                 'date'   => now()->subDays(27),
             ],
             [
                 'warga'  => 'Dewi Kartika',
-                'items'  => [['Besi & Logam', 6.5]],
+                'items'  => [['Besi & Logam', 6.5], ['Kaleng', 24.8]],
                 'date'   => now()->subDays(25),
             ],
             [
                 'warga'  => 'Hendra Wijaya',
-                'items'  => [['Kertas', 3.0], ['Alumunium', 1.5]],
+                'items'  => [['Kertas', 3.0], ['Alumunium', 1.5], ['Minyak Jelantah', 5.0]],
                 'date'   => now()->subDays(22),
             ],
             [
                 'warga'  => 'Rina Susanti',
-                'items'  => [['Kardus', 8.0], ['Kaca / Botol Kaca', 4.0]],
+                'items'  => [['Kardus', 8.0], ['Kaca / Botol Kaca', 4.0], ['Kaleng', 13.4]],
                 'date'   => now()->subDays(20),
             ],
             [
                 'warga'  => 'Bambang Sutrisno',
-                'items'  => [['Alumunium', 3.0], ['Besi & Logam', 5.0], ['Kaleng', 2.5]],
+                'items'  => [['Alumunium', 3.0], ['Besi & Logam', 5.0], ['Kaleng', 33.5]],
                 'date'   => now()->subDays(17),
             ],
             [
                 'warga'  => 'Yuni Lestari',
-                'items'  => [['Minyak Jelantah', 5.0]],
+                'items'  => [['Minyak Jelantah', 5.0], ['Kaleng', 3.8]],
                 'date'   => now()->subDays(14),
             ],
             [
                 'warga'  => 'Doni Prasetyo',
-                'items'  => [['Plastik Botol', 7.0], ['Kertas', 4.5]],
+                'items'  => [['Plastik Botol', 7.0], ['Kertas', 4.5], ['Minyak Jelantah', 17.0]],
                 'date'   => now()->subDays(10),
             ],
             [
                 'warga'  => 'Sri Mulyani',
-                'items'  => [['Elektronik (e-waste)', 2.0], ['Besi & Logam', 3.0]],
+                'items'  => [['Elektronik (e-waste)', 2.0], ['Besi & Logam', 3.0], ['Plastik Botol', 11.0]],
                 'date'   => now()->subDays(6),
             ],
             [
                 'warga'  => 'Rudi Hermawan',
-                'items'  => [['Kardus', 5.0], ['Kertas', 6.0], ['Plastik Kresek', 3.0]],
+                'items'  => [['Kardus', 5.0], ['Kertas', 6.0], ['Plastik Kresek', 3.0], ['Elektronik (e-waste)', 8.0]],
                 'date'   => now()->subDays(2),
             ],
         ];
+
+        $transactionService = app(\App\Services\TransactionService::class);
 
         foreach ($transaksiData as $data) {
             $warga = $wargas->get($data['warga']);
             if (!$warga) continue;
 
-            // Hitung total poin
-            $totalPoint = 0;
-            $details    = [];
-
+            $items = [];
             foreach ($data['items'] as [$categoryName, $weight]) {
                 $category = $categories->get($categoryName);
                 if (!$category) continue;
 
-                $subtotal       = round($weight * $category->price_per_kg, 2);
-                $totalPoint    += $subtotal;
-                $details[]      = [
-                    'category'       => $category,
-                    'weight'         => $weight,
-                    'price_snapshot' => $category->price_per_kg,
-                    'subtotal_point' => $subtotal,
+                $items[] = [
+                    'waste_category_id' => $category->id,
+                    'weight'            => $weight,
                 ];
             }
 
-            $totalPoint = round($totalPoint, 2);
+            // Gunakan TransactionService untuk membuat transaksi (otomatis update saldo dan ledger)
+            $transaction = $transactionService->createTransaction(
+                $admin->id,
+                $warga->id,
+                $items,
+                Str::uuid()->toString()
+            );
 
-            // Buat header transaksi
-            $transaction = Transaction::create([
-                'user_id'         => $warga->id,
-                'admin_id'        => $admin->id,
-                'total_point'     => $totalPoint,
-                'idempotency_key' => Str::uuid()->toString(),
-                'created_at'      => $data['date'],
-                'updated_at'      => $data['date'],
+            // Update timestamp agar sesuai riwayat historis
+            $transaction->created_at = $data['date'];
+            $transaction->updated_at = $data['date'];
+            $transaction->save(['timestamps' => false]);
+
+            TransactionDetail::where('transaction_id', $transaction->id)->update([
+                'created_at' => $data['date'],
+                'updated_at' => $data['date'],
             ]);
 
-            // Buat detail transaksi
-            foreach ($details as $detail) {
-                TransactionDetail::create([
-                    'transaction_id'    => $transaction->id,
-                    'waste_category_id' => $detail['category']->id,
-                    'weight'            => $detail['weight'],
-                    'price_snapshot'    => $detail['price_snapshot'],
-                    'subtotal_point'    => $detail['subtotal_point'],
-                    'created_at'        => $data['date'],
-                    'updated_at'        => $data['date'],
-                ]);
-            }
-
-            // Catat di PointLedger (audit trail)
-            PointLedger::create([
-                'user_id'        => $warga->id,
-                'type'           => 'credit',
-                'amount'         => $totalPoint,
-                'transaction_id' => $transaction->id,
-                'description'    => 'Poin dari setoran sampah #' . $transaction->id,
-                'created_at'     => $data['date'],
-                'updated_at'     => $data['date'],
+            PointLedger::where('transaction_id', $transaction->id)->update([
+                'created_at' => $data['date'],
+                'updated_at' => $data['date'],
             ]);
         }
     }
