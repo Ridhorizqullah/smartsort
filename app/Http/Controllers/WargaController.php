@@ -9,9 +9,18 @@ use App\Models\Transaction;
 use App\Models\TransactionDetail;
 use App\Services\RedemptionService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class WargaController extends Controller
 {
+    /**
+     * Constructor Controller.
+     * Note: Middleware auth dan role:warga dikonfigurasi pada route level (routes/warga.php).
+     */
+    public function __construct()
+    {
+        // Constructor dipertahankan tetap aman
+    }
 
     /**
      * Beranda Dashboard Warga: statistik saldo dan aktivitas.
@@ -27,7 +36,6 @@ class WargaController extends Controller
             ->sum('transaction_details.weight');
 
         // Total poin yang sudah benar-benar dipotong (hanya status approved, ready, completed)
-        // Status pending BELUM dipotong saldo, jadi tidak dihitung di sini
         $totalPoinDipakai = Redemption::where('user_id', $user->id)
             ->whereIn('status', ['approved', 'ready', 'completed'])
             ->sum('total_point');
@@ -35,16 +43,13 @@ class WargaController extends Controller
         // Filter and Search for Redemptions
         $query = Redemption::with('details.reward')->where('user_id', $user->id);
 
-        if (request()->filled('status')) {
-            $query->where('status', request('status'));
+        $statusFilter = $this->whitelist((string)request()->input('status'), ['', 'pending', 'approved', 'ready', 'completed', 'rejected']);
+        if ($statusFilter !== '') {
+            $query->where('status', $statusFilter);
         }
 
-        if (request()->filled('sort')) {
-            $sortDir = request('sort') === 'oldest' ? 'asc' : 'desc';
-            $query->orderBy('created_at', $sortDir);
-        } else {
-            $query->orderBy('created_at', 'desc'); // Default to newest
-        }
+        $sortDir = request()->input('sort') === 'oldest' ? 'asc' : 'desc';
+        $query->orderBy('created_at', $sortDir);
 
         $dashboardRedemptions = $query->paginate(config('business.pagination_size', 5))->withQueryString();
 
@@ -53,9 +58,55 @@ class WargaController extends Controller
             ->orderBy('created_at', 'desc')
             ->first();
 
+        // 1. Query recommended rewards (affordable, ordered by highest points first, max 3 items)
+        $recommendedRewards = Reward::where('stock', '>', 0)
+            ->where('point_cost', '<=', $user->saldo_poin)
+            ->orderBy('point_cost', 'desc')
+            ->take(3)
+            ->get();
+
+        // 2. Query recent transactions for timeline
+        $recentTransactions = Transaction::with('details.wasteCategory')
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function($t) {
+                $catNames = $t->details->map(fn($d) => ($d->wasteCategory->name ?? 'Sampah'))->unique()->implode(', ');
+                return [
+                    'type' => 'setor',
+                    'points' => $t->total_point,
+                    'weight' => $t->details->sum('weight'),
+                    'created_at' => $t->created_at,
+                    'description' => "Setor sampah (" . $catNames . ")"
+                ];
+            });
+
+        // 3. Query recent redemptions for timeline
+        $recentRedemptions = Redemption::with('details.reward')
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function($r) {
+                $items = $r->details->map(fn($d) => $d->qty . "x " . ($d->reward->name ?? 'Reward'))->implode(', ');
+                return [
+                    'type' => 'tukar',
+                    'points' => $r->total_point,
+                    'created_at' => $r->created_at,
+                    'description' => "Tukar " . $items
+                ];
+            });
+
+        // 4. Combine both and sort by newest
+        $timeline = $recentTransactions->concat($recentRedemptions)
+            ->sortByDesc('created_at')
+            ->take(5);
+
         return view('warga.dashboard', compact(
             'user', 'totalTransaksi', 'totalRedemption', 'totalSampah', 
-            'totalPoinDipakai', 'dashboardRedemptions', 'latestTransaction'
+            'totalPoinDipakai', 'dashboardRedemptions', 'latestTransaction',
+            'recommendedRewards', 'timeline'
         ));
     }
 
@@ -66,14 +117,12 @@ class WargaController extends Controller
     {
         $user = auth()->user();
 
-        // Ambil 5 penukaran terbaru (seperti di dashboard default)
         $latestRedemptions = Redemption::with('details.reward')
             ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get()
             ->map(function ($redemption) {
-                // Map the data to a simple JSON format
                 return [
                     'id' => str_pad($redemption->id, 5, '0', STR_PAD_LEFT),
                     'raw_id' => $redemption->id,
@@ -105,27 +154,92 @@ class WargaController extends Controller
     /**
      * Riwayat setoran sampah milik warga.
      */
-    public function transaksi()
+    public function transaksi(\Illuminate\Http\Request $request)
     {
-        $transactions = Transaction::with('details.wasteCategory')
-            ->where('user_id', auth()->id())
-            ->orderBy('created_at', 'desc')
-            ->paginate(config('business.pagination_size', 10));
+        $user = auth()->user();
 
-        return view('warga.transaksi', compact('transactions'));
+        // 1. Hitung Statistik Ringkas (Keseluruhan/Lifetime)
+        $totalSetoran = Transaction::where('user_id', $user->id)->count();
+        $totalBerat = TransactionDetail::join('transactions', 'transaction_details.transaction_id', '=', 'transactions.id')
+            ->where('transactions.user_id', $user->id)
+            ->sum('transaction_details.weight');
+        $totalPoin = Transaction::where('user_id', $user->id)->sum('total_point');
+
+        // 2. Query dengan Eager Load dan Filter
+        $query = Transaction::with('details.wasteCategory')
+            ->where('user_id', $user->id);
+
+        // Filter Waktu (Whitelisted & Type-Safe)
+        $waktuFilter = $this->whitelist((string)$request->input('waktu'), ['', 'hari_ini', 'minggu_ini', 'bulan_ini', 'bulan_lalu', 'tahun_ini']);
+        if ($waktuFilter !== '') {
+            $this->applyTimeFilter($query, $waktuFilter, 'created_at');
+        }
+
+        // Filter Search (Sanitasi String & Wildcard Escape)
+        if ($request->filled('search')) {
+            $search = $this->sanitizeSearch((string)$request->input('search'), 50);
+            if ($search !== '') {
+                $searchId = ltrim($search, '#');
+                $searchId = ltrim($searchId, '0');
+                
+                $query->where(function($q) use ($search, $searchId) {
+                    if (is_numeric($searchId) && $searchId !== '') {
+                        $q->where('id', $searchId);
+                    }
+                    $q->orWhereHas('details.wasteCategory', function($subQuery) use ($search) {
+                        $subQuery->where('name', 'like', '%' . $search . '%');
+                    });
+                });
+            }
+        }
+
+        $transactions = $query->orderBy('created_at', 'desc')
+            ->paginate(config('business.pagination_size', 10))
+            ->withQueryString();
+
+        return view('warga.transaksi', compact(
+            'transactions', 'totalSetoran', 'totalBerat', 'totalPoin'
+        ));
     }
 
     /**
      * Riwayat penukaran poin milik warga.
      */
-    public function redemption()
+    public function redemption(\Illuminate\Http\Request $request)
     {
-        $redemptions = Redemption::with('details.reward')
-            ->where('user_id', auth()->id())
-            ->orderBy('created_at', 'desc')
-            ->paginate(config('business.pagination_size', 10));
+        $user = auth()->user();
 
-        return view('warga.redemption', compact('redemptions'));
+        // 1. Hitung Statistik Ringkas (Keseluruhan/Lifetime)
+        $totalPenukaran = Redemption::where('user_id', $user->id)->count();
+        $totalPoinDipakai = Redemption::where('user_id', $user->id)
+            ->whereIn('status', ['approved', 'ready', 'completed'])
+            ->sum('total_point');
+        $penukaranPending = Redemption::where('user_id', $user->id)->where('status', 'pending')->count();
+        $penukaranSelesai = Redemption::where('user_id', $user->id)->where('status', 'completed')->count();
+
+        // 2. Query dengan Eager Load dan Filter
+        $query = Redemption::with('details.reward')
+            ->where('user_id', $user->id);
+
+        // Filter Waktu (Whitelisted & Type-Safe)
+        $waktuFilter = $this->whitelist((string)$request->input('waktu'), ['', 'hari_ini', 'minggu_ini', 'bulan_ini', 'bulan_lalu', 'tahun_ini']);
+        if ($waktuFilter !== '') {
+            $this->applyTimeFilter($query, $waktuFilter, 'created_at');
+        }
+
+        // Filter Status (Whitelisted)
+        $statusFilter = $this->whitelist((string)$request->input('status'), ['', 'pending', 'approved', 'ready', 'completed', 'rejected']);
+        if ($statusFilter !== '') {
+            $query->where('status', $statusFilter);
+        }
+
+        $redemptions = $query->orderBy('created_at', 'desc')
+            ->paginate(config('business.pagination_size', 10))
+            ->withQueryString();
+
+        return view('warga.redemption', compact(
+            'redemptions', 'totalPenukaran', 'totalPoinDipakai', 'penukaranPending', 'penukaranSelesai'
+        ));
     }
 
     /**
@@ -135,6 +249,12 @@ class WargaController extends Controller
     public function storeRedemption(StoreRedemptionRequest $request, RedemptionService $redemptionService)
     {
         try {
+            // Hardening: Validasi pola dan panjang pada idempotency_key (alphanumeric & hyphen, max 50 karakter)
+            $idempotencyKey = (string) $request->input('idempotency_key');
+            if (strlen($idempotencyKey) > 50 || !preg_match('/^[a-zA-Z0-9\-]+$/', $idempotencyKey)) {
+                return back()->with('error', 'Idempotency key tidak valid.');
+            }
+
             $items = [[
                 'reward_id' => $request->reward_id,
                 'qty'       => $request->qty,
@@ -143,7 +263,7 @@ class WargaController extends Controller
             $redemptionService->requestRedemption(
                 auth()->id(),
                 $items,
-                $request->idempotency_key
+                $idempotencyKey
             );
 
             return redirect()->route('warga.redemption')
@@ -158,5 +278,54 @@ class WargaController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    /**
+     * Sanitasi pencarian: trim, batasi panjang, dan hapus wildcard SQL.
+     */
+    private function sanitizeSearch(string $value, int $maxLength = 50): string
+    {
+        $val = trim($value);
+        $val = mb_substr($val, 0, $maxLength);
+        return str_replace(['%', '_'], '', $val);
+    }
+
+    /**
+     * Whitelist filter: batasi nilai input sesuai daftar nilai yang diperbolehkan.
+     */
+    private function whitelist(string $value, array $allowed): string
+    {
+        $val = trim($value);
+        if (in_array($val, $allowed, true)) {
+            return $val;
+        }
+        return ''; // Default/Empty
+    }
+
+    /**
+     * Terapkan filter waktu Carbon pada query.
+     */
+    private function applyTimeFilter($query, string $filter, string $column = 'created_at')
+    {
+        switch ($filter) {
+            case 'hari_ini':
+                $query->whereDate($column, today());
+                break;
+            case 'minggu_ini':
+                $query->whereBetween($column, [now()->startOfWeek(), now()->endOfWeek()]);
+                break;
+            case 'bulan_ini':
+                $query->whereMonth($column, now()->month)
+                      ->whereYear($column, now()->year);
+                break;
+            case 'bulan_lalu':
+                $query->whereMonth($column, now()->subMonth()->month)
+                      ->whereYear($column, now()->subMonth()->year);
+                break;
+            case 'tahun_ini':
+                $query->whereYear($column, now()->year);
+                break;
+        }
+        return $query;
     }
 }

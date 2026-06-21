@@ -162,8 +162,20 @@
         if (logoutForm) {
             logoutForm.addEventListener('submit', function () {
                 localStorage.removeItem('smartsort_redemptions');
+                sessionStorage.removeItem('redemption_active_reward_id');
+                sessionStorage.removeItem('redemption_active_idempotency_key');
             });
         }
+        
+        // Track the last visited path in sessionStorage to detect page changes
+        const currentPath = window.location.pathname;
+        const lastPath = sessionStorage.getItem('current_page');
+        if (lastPath && lastPath !== currentPath) {
+            // User moved to a different page, clear active redemption keys
+            sessionStorage.removeItem('redemption_active_reward_id');
+            sessionStorage.removeItem('redemption_active_idempotency_key');
+        }
+        sessionStorage.setItem('current_page', currentPath);
     })();
     </script>
 </body>

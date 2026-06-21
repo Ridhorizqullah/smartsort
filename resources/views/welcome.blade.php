@@ -338,7 +338,7 @@
             <div class="bg-surface-container-lowest rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-outline/10 flex flex-col h-full">
                 <h3 class="text-2xl font-bold text-on-surface mb-8">Kirim Pesan</h3>
                 
-                <form class="flex flex-col gap-6 flex-grow">
+                <form class="flex flex-col gap-6 grow">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-bold text-on-surface-variant mb-2" for="nama">Nama Lengkap</label>
@@ -355,9 +355,9 @@
                         <input class="w-full bg-surface-container-lowest text-on-surface border border-outline-variant/50 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-shadow" id="rt-rw" placeholder="Contoh: RT 01 / RW 03" type="text">
                     </div>
                     
-                    <div class="flex-grow flex flex-col">
+                    <div class="grow flex flex-col">
                         <label class="block text-sm font-bold text-on-surface-variant mb-2" for="pesan">Pesan</label>
-                        <textarea class="w-full flex-grow bg-surface-container-lowest text-on-surface border border-outline-variant/50 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-shadow resize-none min-h-[140px]" id="pesan" placeholder="Tuliskan pertanyaan atau pesan Anda di sini..."></textarea>
+                        <textarea class="w-full grow bg-surface-container-lowest text-on-surface border border-outline-variant/50 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-shadow resize-none min-h-[140px]" id="pesan" placeholder="Tuliskan pertanyaan atau pesan Anda di sini..."></textarea>
                     </div>
                     
                     <button class="mt-4 w-full bg-amber-500 text-white font-bold text-base py-4 rounded-xl hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2" type="button">

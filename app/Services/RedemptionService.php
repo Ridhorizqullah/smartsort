@@ -69,6 +69,10 @@ class RedemptionService
                     if ($reward->point_cost <= 0) {
                         throw new Exception("Biaya poin untuk reward '{$reward->name}' tidak valid (harus > 0).");
                     }
+                    // [SECURITY] Validasi stok di backend (jangan hanya andalkan JS)
+                    if ($reward->stock < $item['qty']) {
+                        throw new Exception("Sistem menolak: Stok untuk '{$reward->name}' tidak mencukupi.");
+                    }
                     $totalPoint += round($reward->point_cost * $item['qty'], 2);
                 }
                 $totalPoint = round($totalPoint, 2);
